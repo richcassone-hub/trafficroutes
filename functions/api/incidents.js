@@ -3,7 +3,7 @@ export async function onRequestGet({ request }) {
   const url = new URL(request.url);
   const dispatchId = (url.searchParams.get("dispatchId") || "").toUpperCase();
 
-  const allowed = new Set(["LACC", "BCCC", "VTCC", "OCCC"]);
+  const allowed = new Set(["LACC", "INCC", "BCCC", "VTCC", "OCCC"]);
   if (!allowed.has(dispatchId)) {
     return new Response("Invalid dispatchId", { status: 400 });
   }
