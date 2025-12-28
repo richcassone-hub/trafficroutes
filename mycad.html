@@ -248,10 +248,10 @@
     setHint("");
     setLoading(true);
 
-    const url = `https://m.chp.ca.gov/incident.aspx?DispatchId=${encodeURIComponent(dispatchId)}`;
+    const url = `/api/incidents?dispatchId=${encodeURIComponent(dispatchId)}`;
 
     try {
-      const html = await fetchHtml(url);
+      const html = await (await fetch(url, { cache: "no-store" })).text();
       const incidents = extractIncidentsFromHtml(html);
 
       if (!incidents.length) {
