@@ -238,7 +238,10 @@
       white-space: nowrap;
     }
 
-  </style>
+  
+    /* Fullscreen */
+    .app:fullscreen { width: 100vw; height: 100vh; overflow: hidden; }
+    </style>
 </head>
 <body>
   <div class="app">
@@ -341,6 +344,7 @@
         <button id="openExternalBtn" disabled>Open in new tab</button>
         <button id="cadBtn" type="button">CAD</button>
         <button id="quickmapBtn" type="button">QuickMap</button>
+        <button id="fullscreenBtn" type="button">Full screen</button>
       </div>
 
       <div class="frameWrap">
@@ -1419,5 +1423,34 @@
 
     init();
   </script>
+
+  <script>
+  (function () {
+    const btn = document.getElementById('fullscreenBtn');
+    const target = document.querySelector('.app') || document.documentElement;
+
+    function isFs() { return document.fullscreenElement != null; }
+
+    async function toggle() {
+      try {
+        if (isFs()) {
+          await document.exitFullscreen();
+        } else {
+          await target.requestFullscreen();
+        }
+      } catch (e) {
+        console.warn('Fullscreen failed:', e);
+      }
+    }
+
+    if (btn) {
+      btn.addEventListener('click', toggle);
+      document.addEventListener('fullscreenchange', () => {
+        btn.textContent = isFs() ? 'Exit full screen' : 'Full screen';
+      });
+    }
+  })();
+  </script>
+
 </body>
 </html>
