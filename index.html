@@ -206,11 +206,52 @@
       flex-wrap: wrap;
       margin-top: 10px;
     }
+  
+    /* Stopwatch (left pane, pinned) */
+    .stopwatchBar{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(128,128,128,0.35);
+      border-radius: 12px;
+      background: rgba(128,128,128,0.10);
+    }
+    .stopwatchDisplay{
+      font-weight: 800;
+      font-size: clamp(48px, 9vw, 92px);
+      line-height: 1;
+      letter-spacing: 0.5px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .stopwatchBtns{
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+      align-items: center;
+      white-space: nowrap;
+    }
+
   </style>
 </head>
 <body>
   <div class="app">
     <aside class="left" id="leftPane">
+
+      <!-- Stopwatch (pinned) -->
+      <div class="stopwatchBar" id="stopwatchBar" aria-label="Stopwatch">
+        <div class="stopwatchDisplay" id="stopwatchDisplay">00:00</div>
+        <div class="stopwatchBtns">
+          <button type="button" id="stopwatchToggleBtn">Start</button>
+          <button type="button" id="stopwatchResetBtn">Reset</button>
+        </div>
+      </div>
 
       <!-- Script pane -->
       <div class="collapse" id="scriptCollapse">
@@ -299,11 +340,13 @@
         <button id="reverseCurrentBtn" disabled>Reverse</button>
         <button id="openExternalBtn" disabled>Open in new tab</button>
         <button id="cadBtn" type="button">CAD</button>
+        <button id="quickmapBtn" type="button">QuickMap</button>
       </div>
 
       <div class="frameWrap">
         <iframe id="gmapsFrame" title="Google Maps" style="display:block;"></iframe>
         <iframe id="cadFrame" title="CAD" style="display:none;"></iframe>
+        <iframe id="quickmapFrame" title="QuickMap" style="display:none;"></iframe>
       </div>
     </main>
   </div>
@@ -365,7 +408,84 @@
 
     const REGIONS_KEY = "traffic_board_regions_v1";
 
-    const CAD_BASE = "https://quickmap.dot.ca.gov/mindex.html";
+    const CAD_BASE = "/mycad.html";
+    const QUICKMAP_URL = "https://quickmap.dot.ca.gov/mindex.html";
+
+    const STOPWATCH_KEY = "traffic_board_stopwatch_v1"; // optional persistence (elapsed ms only)
+
+    const stopwatchDisplay = document.getElementById("stopwatchDisplay");
+    const stopwatchToggleBtn = document.getElementById("stopwatchToggleBtn");
+    const stopwatchResetBtn = document.getElementById("stopwatchResetBtn");
+
+    let swRunning = false;
+    let swStart = 0;        // performance.now() when started
+    let swElapsed = loadStopwatchElapsed(); // ms accumulated
+    let swTimer = null;
+
+    function loadStopwatchElapsed() {
+      try {
+        const raw = localStorage.getItem(STOPWATCH_KEY);
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+      } catch {
+        return 0;
+      }
+    }
+    function saveStopwatchElapsed(ms) {
+      try { localStorage.setItem(STOPWATCH_KEY, String(Math.max(0, Math.round(ms)))); } catch {}
+    }
+
+    function pad2(n) { return String(n).padStart(2, "0"); }
+    function formatStopwatch(ms) {
+      const totalSec = Math.floor(Math.max(0, ms) / 1000);
+      const mm = Math.floor(totalSec / 60);
+      const ss = totalSec % 60;
+      return `${pad2(mm)}:${pad2(ss)}`;
+    }
+    function renderStopwatch() {
+      stopwatchDisplay.textContent = formatStopwatch(swElapsed + (swRunning ? (performance.now() - swStart) : 0));
+    }
+
+    function stopStopwatch() {
+      if (!swRunning) return;
+      swElapsed = swElapsed + (performance.now() - swStart);
+      swRunning = false;
+      swStart = 0;
+      if (swTimer) { clearInterval(swTimer); swTimer = null; }
+      stopwatchToggleBtn.textContent = "Start";
+      saveStopwatchElapsed(swElapsed);
+      renderStopwatch();
+    }
+
+    function startStopwatch() {
+      if (swRunning) return;
+      swRunning = true;
+      swStart = performance.now();
+      stopwatchToggleBtn.textContent = "Stop";
+      if (swTimer) clearInterval(swTimer);
+      swTimer = setInterval(() => {
+        renderStopwatch();
+      }, 200);
+      renderStopwatch();
+    }
+
+    stopwatchToggleBtn.addEventListener("click", () => {
+      if (swRunning) stopStopwatch();
+      else startStopwatch();
+    });
+
+    stopwatchResetBtn.addEventListener("click", () => {
+      swElapsed = 0;
+      saveStopwatchElapsed(swElapsed);
+      if (swRunning) {
+        swStart = performance.now();
+      } else {
+        renderStopwatch();
+      }
+    });
+
+    // Initial paint
+    renderStopwatch();
 
     // ---------- DEFAULTS LIVE HERE (single-file) ----------
     function defaultRegions() {
@@ -466,9 +586,11 @@
     const newRegionLabel = document.getElementById("newRegionLabel");
 
     const cadBtn = document.getElementById("cadBtn");
+    const quickmapBtn = document.getElementById("quickmapBtn");
 
     const gmapsFrame = document.getElementById("gmapsFrame");
     const cadFrame = document.getElementById("cadFrame");
+    const quickmapFrame = document.getElementById("quickmapFrame");
 
     let regions = loadRegions();
     let routes = loadRoutes() ?? defaultRoutes();
@@ -482,6 +604,8 @@
     // CAD persistence: separate iframe stays loaded (hidden via display none).
     let cadVisible = false;
     let cadInitialized = false;
+    let quickmapVisible = false;
+    let quickmapInitialized = false;
 
     /* ---------- Storage: basic helpers ---------- */
     function loadText(key, fallback = "") {
@@ -838,9 +962,12 @@
     /* ---------- Maps + CAD toggle ---------- */
     function showGmaps() {
       cadVisible = false;
+      quickmapVisible = false;
       cadBtn.classList.remove("active-toggle");
+      quickmapBtn.classList.remove("active-toggle");
       gmapsFrame.style.display = "block";
       cadFrame.style.display = "none";
+      quickmapFrame.style.display = "none";
 
       const hasRoute = !!currentRoute;
       openExternalBtn.disabled = !hasRoute;
@@ -849,9 +976,12 @@
 
     function showCad() {
       cadVisible = true;
+      quickmapVisible = false;
       cadBtn.classList.add("active-toggle");
+      quickmapBtn.classList.remove("active-toggle");
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "block";
+      quickmapFrame.style.display = "none";
 
       if (!cadInitialized) {
         cadFrame.src = CAD_BASE;
@@ -862,9 +992,32 @@
       reverseCurrentBtn.disabled = true;
     }
 
+    function showQuickmap() {
+      cadVisible = false;
+      quickmapVisible = true;
+      cadBtn.classList.remove("active-toggle");
+      quickmapBtn.classList.add("active-toggle");
+      gmapsFrame.style.display = "none";
+      cadFrame.style.display = "none";
+      quickmapFrame.style.display = "block";
+
+      if (!quickmapInitialized) {
+        quickmapFrame.src = QUICKMAP_URL;
+        quickmapInitialized = true;
+      }
+
+      openExternalBtn.disabled = true;
+      reverseCurrentBtn.disabled = true;
+    }
+
     cadBtn.addEventListener("click", () => {
       if (cadVisible) showGmaps();
       else showCad();
+    });
+
+    quickmapBtn.addEventListener("click", () => {
+      if (quickmapVisible) showGmaps();
+      else showQuickmap();
     });
 
     /* ---------- Current route selection ---------- */
