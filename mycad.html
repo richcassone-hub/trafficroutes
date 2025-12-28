@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CHP Mobile Incidents (Local Table)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+    .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    button { padding: 8px 10px; cursor: pointer; }
+    button[aria-pressed="true"] { font-weight: 700; }
+    .meta { font-size: 13px; opacity: 0.8; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,0.12); vertical-align: top; }
+    thead th { border-bottom: 2px solid rgba(0,0,0,0.25); }
+    .date-row td { font-weight: 700; }
+    .error { color: #b00020; white-space: pre-wrap; margin-top: 10px; }
+    .small { font-size: 12px; opacity: 0.85; }
+    .spinner { display:inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.2); border-top-color: rgba(0,0,0,0.8); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="bar" id="bar"></div>
+  <div class="meta" id="meta"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Incident Type</th>
+        <th>City</th>
+        <th>Location</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <!-- date row + data rows injected here -->
+    </tbody>
+  </table>
+
+  <div class="error" id="error"></div>
+  <div class="small" id="hint"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // DispatchIds confirmed from CHP Mobile "Search by Area" links:
+  // Los Angeles: LACC  :contentReference[oaicite:0]{index=0}
+  // San Diego: BCCC     :contentReference[oaicite:1]{index=1}
+  // Ventura: VTCC       :contentReference[oaicite:2]{index=2}
+  // Orange County: OCCC :contentReference[oaicite:3]{index=3}
+  const CENTERS = [
+    { label: "Los Angeles", dispatchId: "LACC" },
+    { label: "San Diego", dispatchId: "BCCC" },
+    { label: "Ventura", dispatchId: "VTCC" },
+    { label: "Orange", dispatchId: "OCCC" },
+  ];
+
+  const bar = document.getElementById("bar");
+  const meta = document.getElementById("meta");
+  const tbody = document.getElementById("tbody");
+  const errorEl = document.getElementById("error");
+  const hintEl = document.getElementById("hint");
+
+  let currentDispatch = CENTERS[0].dispatchId;
+
+  function fmtDateLong(d) {
+    return d.toLocaleDateString(undefined, {
+      weekday: "long", year: "numeric", month: "long", day: "numeric"
+    });
+  }
+
+  function setLoading(on) {
+    meta.innerHTML = on ? `<span class="spinner"></span>Loading…` : "";
+  }
+
+  function setError(msg) {
+    errorEl.textContent = msg || "";
+  }
+
+  function setHint(msg) {
+    hintEl.textContent = msg || "";
+  }
+
+  function clearTable() {
+    tbody.innerHTML = "";
+  }
+
+  function addDateRow() {
+    const tr = document.createElement("tr");
+    tr.className = "date-row";
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.textContent = fmtDateLong(new Date());
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+
+  function addRow({ type, city, location, time }) {
+    const tr = document.createElement("tr");
+    [type, city, location, time].forEach(v => {
+      const td = document.createElement("td");
+      td.textContent = v || "";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+
+  function clean(s) {
+    return (s || "").replace(/\s+/g, " ").trim();
+  }
+
+  // Tries to interpret one incident entry that may be:
+  // A) four lines (IncidentType, City, Location, Timestamp)
+  // B) one line (common on some mobile lists)
+  function parseIncidentText(text) {
+    const lines = (text || "")
+      .split("\n")
+      .map(l => clean(l))
+      .filter(Boolean);
+
+    if (lines.length >= 4) {
+      return {
+        type: lines[0],
+        city: lines[1],
+        location: lines[2],
+        time: lines[3],
+      };
+    }
+
+    // Fallback: one-line format (best-effort parsing)
+    // Example: "1182-Trfc Collision-No Inj Altadena SR134 W / N ORANGE GROVE BLVD Dec 28 2025 3:29AM"
+    const one = clean(text);
+
+    // Time pattern at end: "Dec 28 2025 3:29AM" (or similar)
+    const timeMatch = one.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{1,2}:\d{2}(?:AM|PM)\b/i);
+    const time = timeMatch ? timeMatch[0] : "";
+
+    const withoutTime = time ? one.replace(time, "").trim() : one;
+
+    // Guess incident type: up to first double-space-ish split, or up to first known city token
+    // Realistically, the city is often a single token right after the incident-type blob,
+    // so we take first token after the numeric/code prefix as the city candidate.
+    // This is imperfect; it only runs if we didn't get 4 lines.
+    const tokens = withoutTime.split(" ").filter(Boolean);
+
+    // If first token has an incident number/code, keep it in type.
+    // We'll build type as everything up to cityGuess, and location as the rest.
+    let cityIdx = -1;
+
+    // Heuristic: city tends to be the first TitleCase-ish token after incident type.
+    // But incident types also have TitleCase tokens, so: find the first token that is ALL letters OR contains '-'? no.
+    // We'll do: find index of token that is not obviously part of the incident type prefix (which often contains hyphens/digits).
+    // Start scanning from token 1.
+    for (let i = 1; i < tokens.length; i++) {
+      // stop when token looks like a route/location marker (I5, SR99, US101, etc) -> city probably before that
+      if (/^(I|SR|US)\d+/i.test(tokens[i])) break;
+      // choose first token that isn't full of punctuation/digits
+      if (/^[A-Za-z][A-Za-z'.-]*$/.test(tokens[i])) { cityIdx = i; break; }
+    }
+
+    if (cityIdx === -1) cityIdx = 1;
+
+    const type = tokens.slice(0, cityIdx).join(" ");
+    const city = tokens[cityIdx] || "";
+    const location = tokens.slice(cityIdx + 1).join(" ");
+
+    return { type, city, location, time };
+  }
+
+  // Fetch helper.
+  // Direct fetch from a local HTML file will usually fail due to CORS.
+  // So we try:
+  // 1) Direct fetch (works if you're running through a local server with relaxed CORS or browser allows it)
+  // 2) r.jina.ai proxy (often works because it returns page text with CORS headers)
+  async function fetchHtml(url) {
+    const direct = async () => {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status} (${r.statusText})`);
+      return await r.text();
+    };
+
+    const viaJina = async () => {
+      // Note: r.jina.ai expects the full URL after the domain.
+      const proxied = "https://r.jina.ai/" + url;
+      const r = await fetch(proxied, { cache: "no-store" });
+      if (!r.ok) throw new Error(`Proxy HTTP ${r.status} (${r.statusText})`);
+      return await r.text();
+    };
+
+    try {
+      return await direct();
+    } catch (e1) {
+      return await viaJina();
+    }
+  }
+
+  function extractIncidentsFromHtml(html) {
+    // Parse fetched HTML into a DOM
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    // On CHP Mobile incident lists, incidents show up as links.
+    // We'll take links under the "Traffic for X" section, excluding nav links.
+    const links = Array.from(doc.querySelectorAll("a"))
+      .filter(a => clean(a.textContent).length > 0)
+      .filter(a => {
+        const t = clean(a.textContent);
+        // Exclude navigation links
+        if (/^Back$/i.test(t)) return false;
+        if (/^Home$/i.test(t)) return false;
+        if (/^CA\.GOV$/i.test(t)) return false;
+        if (/Back to Top/i.test(t)) return false;
+        return true;
+      });
+
+    // The incident list pages usually have a set of incident anchors, with each anchor containing the full item text.
+    // We'll parse each anchor's text into 4 fields (or best-effort fallback).
+    const incidents = links
+      .map(a => parseIncidentText(a.textContent))
+      .filter(x => x.type || x.city || x.location || x.time);
+
+    // Some pages include extra non-incident links. Filter those out:
+    // Incidents usually include a time or a known incident prefix number pattern.
+    const filtered = incidents.filter(x => {
+      const combined = `${x.type} ${x.city} ${x.location} ${x.time}`.trim();
+      const hasTime = /\b\d{1,2}:\d{2}(?:AM|PM)?\b/i.test(combined);
+      const hasIncidentCode = /\b\d{3,5}[- ]/.test(combined) || /\bSIG\b/i.test(combined) || /\bWW\b/i.test(combined);
+      return hasTime || hasIncidentCode;
+    });
+
+    // If we somehow filtered everything, fall back to unfiltered list.
+    return filtered.length ? filtered : incidents;
+  }
+
+  async function load(dispatchId) {
+    currentDispatch = dispatchId;
+
+    // UI state
+    for (const btn of bar.querySelectorAll("button")) {
+      btn.setAttribute("aria-pressed", btn.dataset.dispatchId === dispatchId ? "true" : "false");
+    }
+
+    clearTable();
+    addDateRow();
+    setError("");
+    setHint("");
+    setLoading(true);
+
+    const url = `https://m.chp.ca.gov/incident.aspx?DispatchId=${encodeURIComponent(dispatchId)}`;
+
+    try {
+      const html = await fetchHtml(url);
+      const incidents = extractIncidentsFromHtml(html);
+
+      if (!incidents.length) {
+        setHint("No incidents found (or the page format changed).");
+        return;
+      }
+
+      // Render
+      // If the mobile page actually uses 4-line entries (your case), this will preserve it.
+      // If it’s one-line entries, the fallback parser tries to split it.
+      for (const inc of incidents) addRow(inc);
+
+      setHint(`Source: ${url}`);
+    } catch (err) {
+      setError(
+        `Failed to load incidents.\n\n` +
+        `Likely cause: browser blocked cross-origin requests from a local file.\n\n` +
+        `Fix: run this page through a local web server (not file://).\n` +
+        `Example: in this folder run:\n` +
+        `  python3 -m http.server 8080\n` +
+        `Then open:\n` +
+        `  http://localhost:8080/this-file.html\n\n` +
+        `Technical detail:\n${String(err && err.message ? err.message : err)}`
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function initButtons() {
+    CENTERS.forEach((c, idx) => {
+      const b = document.createElement("button");
+      b.textContent = c.label;
+      b.dataset.dispatchId = c.dispatchId;
+      b.type = "button";
+      b.setAttribute("aria-pressed", idx === 0 ? "true" : "false");
+      b.addEventListener("click", () => load(c.dispatchId));
+      bar.appendChild(b);
+    });
+  }
+
+  initButtons();
+  load(currentDispatch);
+})();
+</script>
+</body>
+</html>
