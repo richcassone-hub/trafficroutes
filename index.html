@@ -307,6 +307,7 @@
 
             <div style="display:flex; gap:8px; margin-top: 12px;">
               <button type="submit" style="flex:1; border-radius: 12px;">Add</button>
+              <button type="button" id="tryRouteBtn" title="Preview this route on the map" style="border-radius: 12px;">Try it</button>
               <button type="button" id="resetBtn" title="Reset form" style="border-radius: 12px;">Reset</button>
             </div>
 
@@ -552,6 +553,7 @@
     const openExternalBtn = document.getElementById("openExternalBtn");
     const reverseCurrentBtn = document.getElementById("reverseCurrentBtn");
     const resetBtn = document.getElementById("resetBtn");
+    const tryRouteBtn = document.getElementById("tryRouteBtn");
     const filterBar = document.getElementById("filterBar");
     const countLabel = document.getElementById("countLabel");
 
@@ -1195,6 +1197,22 @@
         origin,
         destination,
       });
+    // Preview route (does not save)
+    if (tryRouteBtn) {
+      tryRouteBtn.addEventListener("click", () => {
+        const name = String(document.getElementById("name")?.value || "").trim() || "Unsaved route";
+        const region = String(regionSelect?.value || "").trim();
+        const origin = String(document.getElementById("origin")?.value || "").trim();
+        const destination = String(document.getElementById("destination")?.value || "").trim();
+
+        if (!origin || !destination) return;
+
+        showGmaps();
+        const tempRoute = { id: "__tryit__", region, name, origin, destination };
+        setCurrent(tempRoute, false);
+      });
+    }
+
 
       saveRoutes();
       routeForm.reset();
