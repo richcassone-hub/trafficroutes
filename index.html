@@ -307,6 +307,7 @@
 
             <div style="display:flex; gap:8px; margin-top: 12px;">
               <button type="submit" style="flex:1; border-radius: 12px;">Add</button>
+              <button type="button" id="tryRouteBtn" title="Preview this route on the map" style="border-radius: 12px;">Try it</button>
               <button type="button" id="resetBtn" title="Reset form" style="border-radius: 12px;">Reset</button>
             </div>
 
@@ -552,6 +553,7 @@
     const openExternalBtn = document.getElementById("openExternalBtn");
     const reverseCurrentBtn = document.getElementById("reverseCurrentBtn");
     const resetBtn = document.getElementById("resetBtn");
+    const tryRouteBtn = document.getElementById("tryRouteBtn");
     const filterBar = document.getElementById("filterBar");
     const countLabel = document.getElementById("countLabel");
 
@@ -1195,7 +1197,7 @@
         origin,
         destination,
       });
-
+ 
       saveRoutes();
       routeForm.reset();
       renderRegionSelect();
@@ -1372,6 +1374,31 @@
       renderRegionSelect();
     });
 
+// Try it: preview without saving
+if (tryRouteBtn) {
+  tryRouteBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const fd = new FormData(routeForm);
+    const name = String(fd.get("name") || "").trim() || "Unsaved route";
+    const region = String(fd.get("region") || "").trim();
+    const origin = String(fd.get("origin") || "").trim();
+    const destination = String(fd.get("destination") || "").trim();
+
+    if (!origin || !destination) return;
+
+    // Optional: only enforce region if you want it required for Try
+    const valid = new Set(regions.map(r => r.id));
+    if (region && !valid.has(region)) {
+      alert("Select a valid region.");
+      return;
+    }
+
+    showGmaps();
+    setCurrent({ id: "__tryit__", region, name, origin, destination }, false);
+  });
+}
+
     /* ---------- Left pane resize (saved) ---------- */
     function loadLeftWidth() {
       try {
@@ -1422,39 +1449,7 @@
     }
 
     init();
-  
-
-// === Try it button fix ===
-(function(){
-  const tryRouteBtn = document.getElementById("tryRouteBtn");
-  const routeForm = document.getElementById("routeForm");
-  if (!tryRouteBtn || !routeForm) return;
-
-  tryRouteBtn.addEventListener("click", () => {
-    const fd = new FormData(routeForm);
-    const name = String(fd.get("name") || "").trim() || "Unsaved route";
-    const region = String(fd.get("region") || "").trim();
-    const origin = String(fd.get("origin") || "").trim();
-    const destination = String(fd.get("destination") || "").trim();
-
-    if (!origin || !destination) return;
-
-    if (window.regions && region) {
-      const valid = new Set(window.regions.map(r => r.id));
-      if (!valid.has(region)) {
-        alert("Select a valid region.");
-        return;
-      }
-    }
-
-    if (typeof showGmaps === "function") showGmaps();
-    if (typeof setCurrent === "function") {
-      setCurrent({ id: "__tryit__", region, name, origin, destination }, false);
-    }
-  });
-})();
-</script>
-
+  </script>
 
   <script>
   (function () {
@@ -1482,39 +1477,7 @@
       });
     }
   })();
-  
-
-// === Try it button fix ===
-(function(){
-  const tryRouteBtn = document.getElementById("tryRouteBtn");
-  const routeForm = document.getElementById("routeForm");
-  if (!tryRouteBtn || !routeForm) return;
-
-  tryRouteBtn.addEventListener("click", () => {
-    const fd = new FormData(routeForm);
-    const name = String(fd.get("name") || "").trim() || "Unsaved route";
-    const region = String(fd.get("region") || "").trim();
-    const origin = String(fd.get("origin") || "").trim();
-    const destination = String(fd.get("destination") || "").trim();
-
-    if (!origin || !destination) return;
-
-    if (window.regions && region) {
-      const valid = new Set(window.regions.map(r => r.id));
-      if (!valid.has(region)) {
-        alert("Select a valid region.");
-        return;
-      }
-    }
-
-    if (typeof showGmaps === "function") showGmaps();
-    if (typeof setCurrent === "function") {
-      setCurrent({ id: "__tryit__", region, name, origin, destination }, false);
-    }
-  });
-})();
-</script>
-
+  </script>
 
 </body>
 </html>
