@@ -28,6 +28,7 @@
   <table>
     <thead>
       <tr>
+        <th>ID</th>
         <th>Incident Type</th>
         <th>City</th>
         <th>Location</th>
@@ -93,15 +94,15 @@
     const tr = document.createElement("tr");
     tr.className = "date-row";
     const td = document.createElement("td");
-    td.colSpan = 4;
+    td.colSpan = 5;
     td.textContent = fmtDateLong(new Date());
     tr.appendChild(td);
     tbody.appendChild(tr);
   }
 
-  function addRow({ type, city, location, time }) {
+  function addRow({ id, type, city, location, time }) {
     const tr = document.createElement("tr");
-    [type, city, location, time].forEach(v => {
+    [id, type, city, location, time].forEach(v => {
       const td = document.createElement("td");
       td.textContent = v || "";
       tr.appendChild(td);
@@ -219,7 +220,16 @@
     // The incident list pages usually have a set of incident anchors, with each anchor containing the full item text.
     // We'll parse each anchor's text into 4 fields (or best-effort fallback).
     const incidents = links
-      .map(a => parseIncidentText(a.textContent))
+      .map(a => {
+        const inc = parseIncidentText(a.textContent);
+
+        // extract last 4 digits from id=XXXXXXXXXXXX
+        const href = a.getAttribute("href") || "";
+        const m = href.match(/id=\d{8}(\d{4})$/);
+        inc.id = m ? m[1] : "";
+
+        return inc;
+      })
       .filter(x => x.type || x.city || x.location || x.time);
 
     // Some pages include extra non-incident links. Filter those out:
