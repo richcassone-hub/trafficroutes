@@ -225,8 +225,19 @@
 
         // extract last 4 digits from id=XXXXXXXXXXXX
         const href = a.getAttribute("href") || "";
-        const m = href.match(/id=\d{8}(\d{4})$/);
-        inc.id = m ? m[1] : "";
+
+        // Robustly read the id query param from the link URL (relative or absolute),
+        // then use the last 4 digits of the 12-digit id.
+        let idVal = "";
+        try {
+          const u = new URL(href, window.location.href);
+          idVal = u.searchParams.get("id") || u.searchParams.get("ID") || "";
+        } catch (e) {
+          // Fallback if href isn't parseable by URL()
+          const m = href.match(/[?&]id=(\d{12})\b/i);
+          idVal = m ? m[1] : "";
+        }
+        inc.id = idVal ? String(idVal).slice(-4) : "";
 
         return inc;
       })
