@@ -340,6 +340,7 @@
       <div class="toolbar">
         <button id="reverseCurrentBtn" disabled>Reverse</button>
         <button id="openExternalBtn" disabled>Tab</button>
+        <button id="camsBtn" type="button">Cams</button>
         <button id="cadBtn" type="button">CAD</button>
         <button id="quickmapBtn" type="button">QuickMap</button>
         <div style="flex:1;"></div>
@@ -351,6 +352,7 @@
       <div class="frameWrap">
         <iframe id="gmapsFrame" title="Google Maps" style="display:block;"></iframe>
         <iframe id="cadFrame" title="CAD" style="display:none;"></iframe>
+        <iframe id="camsFrame" title="Cams" style="display:none;"></iframe>
         <iframe id="quickmapFrame" title="QuickMap" style="display:none;"></iframe>
       </div>
     </main>
@@ -415,6 +417,7 @@
 
     const CAD_BASE = "/mycad.html";
     const QUICKMAP_URL = "https://quickmap.dot.ca.gov/QM/maps/traffic/mwebview.html?z=11&ll=34.04,-118.25";
+    const CAMS_URL = "https://cwwp2.dot.ca.gov/vm/iframemap.htm";
 
     const STOPWATCH_KEY = "traffic_board_stopwatch_v1"; // optional persistence (elapsed ms only)
 
@@ -594,9 +597,13 @@
     const cadBtn = document.getElementById("cadBtn");
     const quickmapBtn = document.getElementById("quickmapBtn");
 
+    const camsBtn = document.getElementById("camsBtn");
+
     const gmapsFrame = document.getElementById("gmapsFrame");
     const cadFrame = document.getElementById("cadFrame");
     const quickmapFrame = document.getElementById("quickmapFrame");
+
+    const camsFrame = document.getElementById("camsFrame");
 
     let regions = loadRegions();
     let routes = loadRoutes() ?? defaultRoutes();
@@ -612,6 +619,9 @@
     let cadInitialized = false;
     let quickmapVisible = false;
     let quickmapInitialized = false;
+
+    let camsVisible = false;
+    let camsInitialized = false;
 
     /* ---------- Storage: basic helpers ---------- */
     function loadText(key, fallback = "") {
@@ -969,11 +979,14 @@
     function showGmaps() {
       cadVisible = false;
       quickmapVisible = false;
+      camsVisible = false;
       cadBtn.classList.remove("active-toggle");
       quickmapBtn.classList.remove("active-toggle");
+      camsBtn.classList.remove("active-toggle");
       gmapsFrame.style.display = "block";
       cadFrame.style.display = "none";
       quickmapFrame.style.display = "none";
+      camsFrame.style.display = "none";
 
       const hasRoute = !!currentRoute;
       openExternalBtn.disabled = !hasRoute;
@@ -983,11 +996,14 @@
     function showCad() {
       cadVisible = true;
       quickmapVisible = false;
+      camsVisible = false;
       cadBtn.classList.add("active-toggle");
       quickmapBtn.classList.remove("active-toggle");
+      camsBtn.classList.remove("active-toggle");
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "block";
       quickmapFrame.style.display = "none";
+      camsFrame.style.display = "none";
 
       if (!cadInitialized) {
         cadFrame.src = CAD_BASE;
@@ -1001,11 +1017,14 @@
     function showQuickmap() {
       cadVisible = false;
       quickmapVisible = true;
+      camsVisible = false;
       cadBtn.classList.remove("active-toggle");
       quickmapBtn.classList.add("active-toggle");
+      camsBtn.classList.remove("active-toggle");
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "none";
       quickmapFrame.style.display = "block";
+      camsFrame.style.display = "none";
 
       if (!quickmapInitialized) {
         quickmapFrame.src = QUICKMAP_URL;
@@ -1024,6 +1043,35 @@
     quickmapBtn.addEventListener("click", () => {
       if (quickmapVisible) showGmaps();
       else showQuickmap();
+    });
+
+
+    function showCams() {
+      cadVisible = false;
+      quickmapVisible = false;
+      camsVisible = true;
+
+      cadBtn.classList.remove("active-toggle");
+      quickmapBtn.classList.remove("active-toggle");
+      camsBtn.classList.add("active-toggle");
+
+      gmapsFrame.style.display = "none";
+      cadFrame.style.display = "none";
+      quickmapFrame.style.display = "none";
+      camsFrame.style.display = "block";
+
+      if (!camsInitialized) {
+        camsFrame.src = CAMS_URL;
+        camsInitialized = true;
+      }
+
+      openExternalBtn.disabled = true;
+      reverseCurrentBtn.disabled = true;
+    }
+
+    camsBtn.addEventListener("click", () => {
+      if (camsVisible) showGmaps();
+      else showCams();
     });
 
     /* ---------- Current route selection ---------- */
