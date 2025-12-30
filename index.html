@@ -344,7 +344,7 @@
         <div style="flex:1;"></div>
         <div class="title">Map</div>
         <div id="currentLabel" class="small" style="margin-left:10px; opacity:0.8;"></div>
-        <button id="fullscreenBtn" type="button">Fullscreen</button>
+        <button id="fullscreenBtn" type="button">↕</button>
       </div>
 
       <div class="frameWrap">
@@ -1446,7 +1446,7 @@
     if (btn) {
       btn.addEventListener('click', toggle);
       document.addEventListener('fullscreenchange', () => {
-        btn.textContent = isFs() ? 'Exit FS' : 'Full screen';
+        btn.textContent = isFs() ? '↙' : '↕';
       });
     }
   })();
