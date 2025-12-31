@@ -12,14 +12,24 @@
     .left {
       width: 340px;
       min-width: 260px;
+      max-width: 60vw;      border-right: none;
+padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+    }
+
+    
+
+    .middle {
+      width: 360px;
+      min-width: 260px;
       max-width: 60vw;
       border-right: 1px solid rgba(128,128,128,0.35);
       padding: 12px;
       box-sizing: border-box;
       overflow: auto;
     }
-
-    .splitter {
+.splitter {
       width: 8px;
       cursor: col-resize;
       background: rgba(128,128,128,0.12);
@@ -67,7 +77,21 @@
       border: 1px solid rgba(128,128,128,0.35);
       border-radius: 999px;
     }
-    .collapse-body {
+    
+    /* Buttons styled like Show/Hide pills */
+    .chevBtn{
+      font-size: 12px;
+      opacity: 0.8;
+      padding: 4px 10px;
+      border: 1px solid rgba(128,128,128,0.35);
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .chevBtn:hover{ background: rgba(128,128,128,0.10); }
+.collapse-body {
       padding: 10px;
       background: rgba(128,128,128,0.12);
       display: none;
@@ -121,8 +145,37 @@
       background: rgba(0,0,0,0);
     }
     .card .top { display:flex; justify-content: space-between; gap:10px; align-items: start; }
-    .card .name { font-weight: 700; }
+    .card .name { font-weight: 700; font-size: 13px; line-height: 1.25; }
     .card .meta { font-size: 12px; opacity: 0.8; margin-top: 4px; line-height: 1.3; }
+
+    .card.clickable { cursor: pointer; }
+
+    /* Drag handle for reordering routes (card itself is clickable) */
+    .card .dragHandle{
+      flex: 0 0 auto;
+      width: 18px;
+      border-radius: 10px;
+      background: rgba(128,128,128,0.18);
+      border: 1px solid rgba(128,128,128,0.30);
+      margin-right: 8px;
+      align-self: stretch;
+      cursor: grab;
+      position: relative;
+      user-select: none;
+    }
+    .card .dragHandle:active{ cursor: grabbing; }
+    .card .dragHandle::before{
+      content: "⋮⋮";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      opacity: 0.75;
+      letter-spacing: -2px;
+      transform: translateX(-1px);
+    }
     .card[draggable="true"] { cursor: grab; }
     .card.dragging { opacity: 0.55; }
     .drop-hint { outline: 2px dashed rgba(128,128,128,0.6); outline-offset: 2px; }
@@ -230,13 +283,12 @@
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
-    .stopwatchBtns{
-      display: flex;
-      gap: 8px;
-      flex: 0 0 auto;
-      align-items: center;
-      white-space: nowrap;
-    }
+    .stopwatchBtns {
+  		display: flex;
+  		flex-direction: column;
+  		gap: 8px;
+  		align-items: stretch;
+	}
 
   
     /* Fullscreen */
@@ -268,7 +320,7 @@
 
           <div class="script-meta">
             <div class="reading-time" id="scriptReadingLine">WPM: 180 | Script words: 0 | Reading time: 0:00</div>
-            <button type="button" id="setWpmBtn">Set WPM</button>
+            <button type="button" id="setWpmBtn" class="chevBtn">Set WPM</button>
           </div>
 
           <label for="lockoutText">Lock-out</label>
@@ -278,6 +330,36 @@
         </div>
       </div>
 
+      <!-- Script pane (2) -->
+      <div class="collapse" id="scriptCollapse2">
+        <div class="collapse-header" id="scriptHeader2" role="button" tabindex="0" aria-expanded="false">
+          <div class="label">Script 2</div>
+          <div class="chev" id="scriptChev2">Show</div>
+        </div>
+        <div class="collapse-body">
+          <label for="scriptText2">Script</label>
+          <textarea id="scriptText2" rows="10" placeholder="Type script here..."></textarea>
+
+          <div class="script-meta">
+            <div class="reading-time" id="scriptReadingLine2">WPM: 180 | Script words: 0 | Reading time: 0:00</div>
+            <button type="button" id="setWpmBtn2" class="chevBtn">Set WPM</button>
+          </div>
+
+          <label for="lockoutText2">Lock-out</label>
+          <textarea id="lockoutText2" rows="2" placeholder="Lock-out..."></textarea>
+
+          <div class="reading-time" id="lockoutReadingLine2">Lockout words: 0 | Reading time: 0:00</div>
+        </div>
+      </div>
+
+      
+
+    </aside>
+
+    <div class="splitter" id="splitter" title="Drag to resize"></div>
+
+    <aside class="middle" id="middlePane">
+      
       <!-- Add Route pane -->
       <div class="collapse" id="addCollapse">
         <div class="collapse-header" id="collapseHeader" role="button" tabindex="0" aria-expanded="false">
@@ -325,6 +407,7 @@
         </div>
       </div>
 
+
       <div class="kicker">
         <div class="section-title" style="margin: 0;">Routes</div>
         <div class="small" id="countLabel"></div>
@@ -334,17 +417,17 @@
       <div id="routeList" class="list"></div>
     </aside>
 
-    <div class="splitter" id="splitter" title="Drag to resize"></div>
+    <div class="splitter" id="splitter2" title="Drag to resize"></div>
 
-    <main class="right">
+<main class="right">
       <div class="toolbar">
+        <button id="middleToggleBtn" type="button">Hide Routes</button>
         <button id="reverseCurrentBtn" disabled>Reverse</button>
         <button id="openExternalBtn" disabled>Tab</button>
         <button id="camsBtn" type="button">Cams</button>
         <button id="cadBtn" type="button">CAD</button>
         <button id="quickmapBtn" type="button">QuickMap</button>
         <div style="flex:1;"></div>
-        <div class="title">Map</div>
         <div id="currentLabel" class="small" style="margin-left:10px; opacity:0.8;"></div>
         <button id="fullscreenBtn" type="button">↕</button>
       </div>
@@ -354,7 +437,10 @@
         <iframe id="cadFrame" title="CAD" style="display:none;"></iframe>
         <iframe id="camsFrame" title="Cams" style="display:none;"></iframe>
         <iframe id="quickmapFrame" title="QuickMap" style="display:none;"></iframe>
-      </div>
+ 
+      
+
+     </div>
     </main>
   </div>
 
@@ -408,16 +494,21 @@
   <script>
     const STORAGE_KEY = "traffic_board_routes_v11";
     const LEFT_WIDTH_KEY = "traffic_board_left_width_v1";
+    const MIDDLE_WIDTH_KEY = "traffic_board_middle_width_v1";
+    const MIDDLE_COLLAPSED_KEY = "traffic_board_middle_collapsed_v1";
 
     const SCRIPT_KEY = "traffic_board_script_v1";
     const LOCKOUT_KEY = "traffic_board_lockout_v1";
+
+    const SCRIPT2_KEY = "traffic_board_script2_v1";
+    const LOCKOUT2_KEY = "traffic_board_lockout2_v1";
     const WPM_KEY = "traffic_board_wpm_v1";
 
     const REGIONS_KEY = "traffic_board_regions_v1";
 
     const CAD_BASE = "/mycad.html";
     const QUICKMAP_URL = "https://quickmap.dot.ca.gov/QM/maps/traffic/mwebview.html?z=11&ll=34.04,-118.25";
-    const CAMS_URL = "https://cwwp2.dot.ca.gov/vm/iframemap.htm";
+    const CAMS_URL = "https://cwwp2.dot.ca.gov/vm/iframemap.htm?long=-118.2437&lat=34.0522&zoom=24";
 
     const STOPWATCH_KEY = "traffic_board_stopwatch_v1"; // optional persistence (elapsed ms only)
 
@@ -566,7 +657,39 @@
     const importFile = document.getElementById("importFile");
 
     const leftPane = document.getElementById("leftPane");
+    const middlePane = document.getElementById("middlePane");
     const splitter = document.getElementById("splitter");
+    const splitter2 = document.getElementById("splitter2");
+
+    function loadMiddleCollapsed() {
+      try { return localStorage.getItem(MIDDLE_COLLAPSED_KEY) === "1"; } catch { return false; }
+    }
+    function saveMiddleCollapsed(v) {
+      try { localStorage.setItem(MIDDLE_COLLAPSED_KEY, v ? "1" : "0"); } catch {}
+    }
+    function setMiddleCollapsed(collapsed) {
+      middleCollapsed = !!collapsed;
+
+      // Hide/show pane + its splitter
+      middlePane.style.display = middleCollapsed ? "none" : "block";
+      splitter2.style.display = middleCollapsed ? "none" : "block";
+
+      if (middleToggleBtn) {
+        middleToggleBtn.classList.toggle("active-toggle", middleCollapsed);
+        middleToggleBtn.textContent = middleCollapsed ? "Show Routes" : "Hide Routes";
+        middleToggleBtn.title = middleCollapsed ? "Show routes pane" : "Hide routes pane";
+      }
+
+      // When restoring, re-apply saved width if any
+      if (!middleCollapsed) {
+        const saved = loadPaneWidth(MIDDLE_WIDTH_KEY);
+        if (saved) middlePane.style.width = `${saved}px`;
+        else middlePane.style.width = "360px";
+      }
+
+      saveMiddleCollapsed(middleCollapsed);
+    }
+
 
     const addCollapse = document.getElementById("addCollapse");
     const collapseHeader = document.getElementById("collapseHeader");
@@ -580,6 +703,15 @@
     const scriptReadingLine = document.getElementById("scriptReadingLine");
     const lockoutReadingLine = document.getElementById("lockoutReadingLine");
     const setWpmBtn = document.getElementById("setWpmBtn");
+
+    const scriptCollapse2 = document.getElementById("scriptCollapse2");
+    const scriptHeader2 = document.getElementById("scriptHeader2");
+    const scriptChev2 = document.getElementById("scriptChev2");
+    const scriptText2 = document.getElementById("scriptText2");
+    const lockoutText2 = document.getElementById("lockoutText2");
+    const scriptReadingLine2 = document.getElementById("scriptReadingLine2");
+    const lockoutReadingLine2 = document.getElementById("lockoutReadingLine2");
+    const setWpmBtn2 = document.getElementById("setWpmBtn2");
 
     const wpmModal = document.getElementById("wpmModal");
     const wpmInput = document.getElementById("wpmInput");
@@ -596,6 +728,7 @@
 
     const cadBtn = document.getElementById("cadBtn");
     const quickmapBtn = document.getElementById("quickmapBtn");
+    const middleToggleBtn = document.getElementById("middleToggleBtn");
 
     const camsBtn = document.getElementById("camsBtn");
 
@@ -622,6 +755,8 @@
 
     let camsVisible = false;
     let camsInitialized = false;
+
+    let middleCollapsed = false;
 
     /* ---------- Storage: basic helpers ---------- */
     function loadText(key, fallback = "") {
@@ -702,10 +837,13 @@
     }
 
     /* ---------- Collapsible ---------- */
-    function setCollapse(el, headerEl, chevEl, open) {
+    function setCollapse(el, headerEl, chevEl, open, storageKey) {
       el.classList.toggle("open", open);
       headerEl.setAttribute("aria-expanded", String(open));
       chevEl.textContent = open ? "Hide" : "Show";
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, open ? "1" : "0"); } catch (e) {}
+      }
     }
 
     setCollapse(addCollapse, collapseHeader, collapseChev, false);
@@ -717,18 +855,32 @@
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleAddCollapse(); }
     });
 
-    setCollapse(scriptCollapse, scriptHeader, scriptChev, false);
+    const scriptCollapseOpen = (localStorage.getItem("scriptCollapseOpen") === "1");
+    setCollapse(scriptCollapse, scriptHeader, scriptChev, scriptCollapseOpen, "scriptCollapseOpen");
     function toggleScriptCollapse() {
-      setCollapse(scriptCollapse, scriptHeader, scriptChev, !scriptCollapse.classList.contains("open"));
+      setCollapse(scriptCollapse, scriptHeader, scriptChev, !scriptCollapse.classList.contains("open"), "scriptCollapseOpen");
     }
     scriptHeader.addEventListener("click", toggleScriptCollapse);
     scriptHeader.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleScriptCollapse(); }
     });
+    const scriptCollapse2Open = (localStorage.getItem("scriptCollapse2Open") === "1");
+    setCollapse(scriptCollapse2, scriptHeader2, scriptChev2, scriptCollapse2Open, "scriptCollapse2Open");
+    function toggleScriptCollapse2() {
+      setCollapse(scriptCollapse2, scriptHeader2, scriptChev2, !scriptCollapse2.classList.contains("open"), "scriptCollapse2Open");
+    }
+    scriptHeader2.addEventListener("click", toggleScriptCollapse2);
+    scriptHeader2.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleScriptCollapse2(); }
+    });
+
 
     /* ---------- Script behavior ---------- */
     scriptText.value = loadText(SCRIPT_KEY, "");
     lockoutText.value = loadText(LOCKOUT_KEY, "");
+
+    scriptText2.value = loadText(SCRIPT2_KEY, "");
+    lockoutText2.value = loadText(LOCKOUT2_KEY, "");
 
     scriptText.addEventListener("input", () => {
       saveText(SCRIPT_KEY, scriptText.value);
@@ -736,6 +888,15 @@
     });
     lockoutText.addEventListener("input", () => {
       saveText(LOCKOUT_KEY, lockoutText.value);
+      updateReadingLines();
+    });
+
+    scriptText2.addEventListener("input", () => {
+      saveText(SCRIPT2_KEY, scriptText2.value);
+      updateReadingLines();
+    });
+    lockoutText2.addEventListener("input", () => {
+      saveText(LOCKOUT2_KEY, lockoutText2.value);
       updateReadingLines();
     });
 
@@ -753,15 +914,20 @@
     function estimateSeconds(words) {
       return wpm > 0 ? (words / wpm) * 60 : 0;
     }
+
     function updateReadingLines() {
       const scriptWords = countWords(scriptText.value);
       const lockWords = countWords(lockoutText.value);
-      scriptReadingLine.textContent = `WPM: ${wpm} | Script words: ${scriptWords} | Reading time: ${formatMmSs(estimateSeconds(scriptWords))}`;
-      lockoutReadingLine.textContent = `Lockout words: ${lockWords} | Reading time: ${formatMmSs(estimateSeconds(lockWords))}`;
+      scriptReadingLine.textContent = `WPM: ${wpm} | Words: ${scriptWords} | Time: ${formatMmSs(estimateSeconds(scriptWords))}`;
+      lockoutReadingLine.textContent = `Lockout words: ${lockWords} | Time: ${formatMmSs(estimateSeconds(lockWords))}`;
+
+      const script2Words = countWords(scriptText2.value);
+      const lock2Words = countWords(lockoutText2.value);
+      scriptReadingLine2.textContent = `WPM: ${wpm} | Words: ${script2Words} | Time: ${formatMmSs(estimateSeconds(script2Words))}`;
+      lockoutReadingLine2.textContent = `Lockout words: ${lock2Words} | Time: ${formatMmSs(estimateSeconds(lock2Words))}`;
     }
     updateReadingLines();
-
-    /* ---------- Modals ---------- */
+/* ---------- Modals ---------- */
     function openModal(el) { el.classList.add("open"); }
     function closeModal(el) { el.classList.remove("open"); }
     function backdropCloseHandler(modalEl) {
@@ -776,6 +942,12 @@
     backdropCloseHandler(regionsModal);
 
     setWpmBtn.addEventListener("click", () => {
+      wpmInput.value = String(wpm);
+      openModal(wpmModal);
+      setTimeout(() => wpmInput.focus(), 0);
+    });
+
+    setWpmBtn2.addEventListener("click", () => {
       wpmInput.value = String(wpm);
       openModal(wpmModal);
       setTimeout(() => wpmInput.focus(), 0);
@@ -864,8 +1036,15 @@
         row.className = "region-row";
         row.style.marginBottom = "8px";
 
+
         const left = document.createElement("div");
         left.style.flex = "1";
+
+        const handle = document.createElement("div");
+        handle.className = "dragHandle";
+        handle.title = "Drag to reorder";
+        handle.draggable = true;
+        handle.addEventListener("pointerdown", (e) => e.stopPropagation());
 
         const pill = document.createElement("span");
         pill.className = "pill";
@@ -883,7 +1062,8 @@
         del.className = "danger";
         del.textContent = "Delete";
         del.disabled = regions.length <= 1;
-        del.addEventListener("click", () => {
+        del.addEventListener("click", (e) => {
+          e.stopPropagation();
           if (regions.length <= 1) return;
 
           const ok = confirm(
@@ -1046,6 +1226,13 @@
     });
 
 
+    if (middleToggleBtn) {
+      middleToggleBtn.addEventListener("click", () => {
+        setMiddleCollapsed(!middleCollapsed);
+      });
+    }
+
+
     function showCams() {
       cadVisible = false;
       quickmapVisible = false;
@@ -1128,13 +1315,22 @@
       for (const r of list) {
         const card = document.createElement("div");
         card.className = "card";
-        card.draggable = true;
+        card.draggable = false;
+        card.classList.add("clickable");
 
         const top = document.createElement("div");
         top.className = "top";
 
         const left = document.createElement("div");
         left.style.flex = "1";
+
+
+const handle = document.createElement("div");
+handle.className = "dragHandle";
+handle.title = "Drag to reorder";
+handle.draggable = true;
+handle.addEventListener("pointerdown", (e) => e.stopPropagation());
+handle.addEventListener("click", (e) => e.stopPropagation());
 
         const name = document.createElement("div");
         name.className = "name";
@@ -1153,16 +1349,18 @@
 
         const go = document.createElement("button");
         go.type = "button";
-        go.textContent = "Show";
-        go.addEventListener("click", () => {
+        go.textContent = "⇢";
+        go.addEventListener("click", (e) => {
+          e.stopPropagation();
           showGmaps();
           setCurrent(r, false);
         });
 
         const rev = document.createElement("button");
         rev.type = "button";
-        rev.textContent = "Reverse";
-        rev.addEventListener("click", () => {
+        rev.textContent = "↩";
+        rev.addEventListener("click", (e) => {
+          e.stopPropagation();
           showGmaps();
           setCurrent(r, true);
         });
@@ -1172,7 +1370,8 @@
         del.className = "danger-x";
         del.title = "Delete route";
         del.textContent = "✕";
-        del.addEventListener("click", () => {
+        del.addEventListener("click", (e) => {
+          e.stopPropagation();
           const ok = confirm(`Delete route?\n\n${r.name}`);
           if (!ok) return;
 
@@ -1187,18 +1386,28 @@
         right.appendChild(rev);
         right.appendChild(del);
 
+        top.appendChild(handle);
         top.appendChild(left);
         top.appendChild(right);
 
         card.appendChild(top);
 
+
+        // Click anywhere on the card to show the route (buttons + handle still work)
+        card.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return;
+          if (e.target.closest(".dragHandle")) return;
+          showGmaps();
+          setCurrent(r, false);
+        });
+
         // Drag events
-        card.addEventListener("dragstart", (e) => {
+        handle.addEventListener("dragstart", (e) => {
           draggedId = r.id;
           card.classList.add("dragging");
           e.dataTransfer.effectAllowed = "move";
         });
-        card.addEventListener("dragend", () => {
+        handle.addEventListener("dragend", () => {
           draggedId = null;
           card.classList.remove("dragging");
           for (const el of routeListEl.querySelectorAll(".drop-hint")) el.classList.remove("drop-hint");
@@ -1447,41 +1656,92 @@ if (tryRouteBtn) {
   });
 }
 
-    /* ---------- Left pane resize (saved) ---------- */
-    function loadLeftWidth() {
+    /* ---------- Pane resize (saved) ---------- */
+    function loadPaneWidth(key) {
       try {
-        const raw = localStorage.getItem(LEFT_WIDTH_KEY);
+        const raw = localStorage.getItem(key);
         const n = Number(raw);
         if (!Number.isFinite(n)) return null;
-        return Math.max(240, Math.min(n, window.innerWidth * 0.8));
+        return Math.max(240, Math.min(n, window.innerWidth * 0.9));
       } catch {
         return null;
       }
     }
-    function saveLeftWidth(px) {
-      localStorage.setItem(LEFT_WIDTH_KEY, String(px));
+    function savePaneWidth(key, px) {
+      try { localStorage.setItem(key, String(Math.max(0, Math.round(px)))); } catch {}
     }
 
-    const savedWidth = loadLeftWidth();
-    if (savedWidth) leftPane.style.width = `${savedWidth}px`;
+    const savedLeftWidth = loadPaneWidth(LEFT_WIDTH_KEY);
+    if (savedLeftWidth) leftPane.style.width = `${savedLeftWidth}px`;
 
-    let resizing = false;
+    const savedMiddleWidth = loadPaneWidth(MIDDLE_WIDTH_KEY);
+    if (savedMiddleWidth) middlePane.style.width = `${savedMiddleWidth}px`;
+
+    // Middle pane collapse persistence
+    setMiddleCollapsed(loadMiddleCollapsed());
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(n, max));
+    }
+
+    // Left splitter: sets left pane width
+    let resizingLeft = false;
     splitter.addEventListener("pointerdown", (e) => {
-      resizing = true;
+      resizingLeft = true;
       splitter.setPointerCapture(e.pointerId);
     });
     splitter.addEventListener("pointermove", (e) => {
-      if (!resizing) return;
+      if (!resizingLeft) return;
       const rect = document.body.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const px = Math.max(240, Math.min(x, window.innerWidth * 0.8));
+
+      const splitterW = splitter.getBoundingClientRect().width || 8;
+      const splitter2W = middleCollapsed ? 0 : (splitter2.getBoundingClientRect().width || 8);
+      const rightMin = 320;
+      const middleMin = middleCollapsed ? 0 : 260;
+
+      const maxLeft = window.innerWidth - splitterW - splitter2W - rightMin - middleMin;
+      const px = clamp(x, 240, Math.max(240, maxLeft));
+
       leftPane.style.width = `${px}px`;
-      saveLeftWidth(px);
+      savePaneWidth(LEFT_WIDTH_KEY, px);
     });
     splitter.addEventListener("pointerup", (e) => {
-      resizing = false;
+      resizingLeft = false;
       splitter.releasePointerCapture(e.pointerId);
     });
+
+    // Middle splitter: sets middle pane width
+    let resizingMiddle = false;
+    splitter2.addEventListener("pointerdown", (e) => {
+      if (middleCollapsed) return;
+      resizingMiddle = true;
+      splitter2.setPointerCapture(e.pointerId);
+    });
+    splitter2.addEventListener("pointermove", (e) => {
+      if (!resizingMiddle) return;
+
+      const rect = document.body.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+
+      const leftW = leftPane.getBoundingClientRect().width;
+      const splitterW = splitter.getBoundingClientRect().width || 8;
+      const splitter2W = splitter2.getBoundingClientRect().width || 8;
+
+      const rightMin = 320;
+      const middleMin = 260;
+      const maxMiddle = window.innerWidth - leftW - splitterW - splitter2W - rightMin;
+
+      const px = clamp(x - leftW - splitterW, middleMin, Math.max(middleMin, maxMiddle));
+
+      middlePane.style.width = `${px}px`;
+      savePaneWidth(MIDDLE_WIDTH_KEY, px);
+    });
+    splitter2.addEventListener("pointerup", (e) => {
+      resizingMiddle = false;
+      splitter2.releasePointerCapture(e.pointerId);
+    });
+
 
     /* ---------- Init ---------- */
     function init() {
