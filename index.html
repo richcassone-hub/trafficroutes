@@ -228,7 +228,7 @@ padding: 12px;
     .modal {
       width: min(680px, 96vw);
       max-height: 86vh;
-      overflow: auto;
+      overflow: hidden;
       border: 1px solid rgba(128,128,128,0.35);
       border-radius: 14px;
       background: rgba(24,24,24,0.92);
@@ -236,11 +236,97 @@ padding: 12px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.45);
       padding: 14px;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
     .modal h3 { margin: 0 0 10px 0; }
     .modal .bar { display:flex; gap:8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
     .modal .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .modal .hr { height: 1px; background: rgba(128,128,128,0.30); margin: 12px 0; }
+
+    .phonesModalHeader{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(24,24,24,0.98);
+      padding: 0 0 8px 0;
+    }
+    .phonesModalHeader h3{ padding-right: 44px; }
+    .phonesModalHeader .small{ padding-right: 44px; }
+    .phonesModal{ position: relative; }
+    .phonesModalBody{
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .phonesTableWrap{
+      height: 100%;
+      overflow: auto;
+      border-radius: 10px;
+    }
+
+    .phoneIcon{
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+    #phonesBtn{
+      width: 40px;
+      height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-x{
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(128,128,128,0.45);
+      background: rgba(128,128,128,0.10);
+      color: inherit;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .modal-x:hover{ background: rgba(128,128,128,0.18); }
+
+    .phonesTable{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .phonesTable thead th{
+      position: sticky;
+      top: 0;
+      background: rgba(24,24,24,0.98);
+      z-index: 2;
+    }
+    .phonesTable th, .phonesTable td{
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(128,128,128,0.25);
+      vertical-align: middle;
+    }
+    .phonesTable tbody tr:hover{
+      background: rgba(128,128,128,0.10);
+    }
+    .callBtn{
+      width: 30px;
+      height: 26px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid rgba(128,128,128,0.45);
+      background: rgba(128,128,128,0.10);
+      color: inherit;
+      cursor: pointer;
+    }
+    .callBtn .phoneIcon{ width: 16px; height: 16px; }
+    .callBtn:hover{ background: rgba(128,128,128,0.18); }
 
     .region-row { display:flex; gap:8px; align-items:center; }
     .region-row .pill { font-size: 12px; opacity: 0.9; padding: 4px 8px; border: 1px solid rgba(128,128,128,0.35); border-radius: 999px; }
@@ -427,6 +513,15 @@ padding: 12px;
         <button id="camsBtn" type="button">Cams</button>
         <button id="cadBtn" type="button">CAD</button>
         <button id="quickmapBtn" type="button">QuickMap</button>
+        <button id="phonesBtn" type="button" title="CHP/TMC phone numbers" aria-label="Phone numbers">
+<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" class="phoneIconSvg">
+  <path fill="#3ccf6e" d="M6.62 10.79c1.44 2.87 3.72 5.15 6.59 6.59l2.2-2.2
+  c.27-.27.67-.36 1.02-.26 1.12.37 2.33.57 3.57.57
+  .55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.07 21 3 13.93 3 5
+  c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1
+  0 1.25.2 2.45.57 3.57.11.35.02.74-.25 1.01l-2.2 2.21z"/>
+</svg>
+</button>
         <div style="flex:1;"></div>
         <div id="currentLabel" class="small" style="margin-left:10px; opacity:0.8;"></div>
         <button id="fullscreenBtn" type="button">↕</button>
@@ -491,7 +586,35 @@ padding: 12px;
     </div>
   </div>
 
-  <script>
+
+  <!-- Modal: Phones -->
+  <div class="modal-backdrop" id="phonesModal" aria-hidden="true">
+    <div class="modal phonesModal" role="dialog" aria-modal="true" aria-label="CHP/TMC phone numbers">
+      <div class="phonesModalHeader">
+        <button type="button" class="modal-x" id="phonesCloseX" aria-label="Close">✕</button>
+        <h3>CHP/TMC phone numbers</h3>
+        <div class="small">Tap the phone icon to call (works on devices that support tel: links).</div>
+        <div class="hr"></div>
+      </div>
+
+      <div class="phonesModalBody">
+        <div class="phonesTableWrap">
+          <table class="phonesTable" aria-label="Phone numbers table">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Name</th>
+                <th style="text-align:left;">Phone</th>
+                <th style="width:56px; text-align:center;">Call</th>
+              </tr>
+            </thead>
+            <tbody id="phonesTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
     const STORAGE_KEY = "traffic_board_routes_v11";
     const LEFT_WIDTH_KEY = "traffic_board_left_width_v1";
     const MIDDLE_WIDTH_KEY = "traffic_board_middle_width_v1";
@@ -726,8 +849,13 @@ padding: 12px;
     const newRegionId = document.getElementById("newRegionId");
     const newRegionLabel = document.getElementById("newRegionLabel");
 
+    const phonesModal = document.getElementById("phonesModal");
+    const phonesTbody = document.getElementById("phonesTbody");
+    const phonesCloseX = document.getElementById("phonesCloseX");
+
     const cadBtn = document.getElementById("cadBtn");
     const quickmapBtn = document.getElementById("quickmapBtn");
+    const phonesBtn = document.getElementById("phonesBtn");
     const middleToggleBtn = document.getElementById("middleToggleBtn");
 
     const camsBtn = document.getElementById("camsBtn");
@@ -934,9 +1062,6 @@ padding: 12px;
       modalEl.addEventListener("click", (e) => {
         if (e.target === modalEl) closeModal(modalEl);
       });
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && modalEl.classList.contains("open")) closeModal(modalEl);
-      });
     }
     backdropCloseHandler(wpmModal);
     backdropCloseHandler(regionsModal);
@@ -962,8 +1087,108 @@ padding: 12px;
       wpm = Math.round(n);
       saveWpm(wpm);
       updateReadingLines();
+
       closeModal(wpmModal);
     });
+
+    /* ---------- Phones ---------- */
+    const PHONE_SVG = `
+<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" class="phoneIconSvg">
+  <path fill="#3ccf6e" d="M6.62 10.79c1.44 2.87 3.72 5.15 6.59 6.59l2.2-2.2
+  c.27-.27.67-.36 1.02-.26 1.12.37 2.33.57 3.57.57
+  .55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.07 21 3 13.93 3 5
+  c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1
+  0 1.25.2 2.45.57 3.57.11.35.02.74-.25 1.01l-2.2 2.21z"/>
+</svg>
+`;
+
+    const PHONE_ROWS = [
+      { name: "CHP - Barstow", tag: "primary", phone: "7602558750" },
+      { name: "CHP - San Luis Obispo", tag: "primary", phone: "8055493619" },
+      { name: "CHP - Ventura", tag: "primary", phone: "8054774174" },
+      { name: "CHP Indio", tag: "primary", phone: "7607728900" },
+      { name: "CHP/TMC - Los Angeles", tag: "primary", phone: "3232593410" },
+      { name: "CHP/TMC - Los Angeles", tag: "secondary", phone: "2138974388" },
+      { name: "CHP/TMC - Los Angeles", tag: "other", phone: "3232592010" },
+      { name: "CHP/TMC - Border Communications Center", tag: "primary", phone: "8586373800" },
+      { name: "CHP/TMC - Inland", tag: "primary", phone: "9093832588" },
+      { name: "CHP/TMC - Inland Dispatch", tag: "primary", phone: "9094285400" },
+      { name: "CHP/TMC - Orange County", tag: "primary", phone: "9496514555" },
+      { name: "CHP/TMC - Orange County", tag: "secondary", phone: "9496514554" },
+      { name: "CHP/TMC - Orange County Dispatch", tag: "primary", phone: "9497846700" },
+    ];
+
+    function digitsOnly(s) {
+      return String(s || "").replace(/\D/g, "");
+    }
+    function formatPhone(usDigits) {
+      const d = digitsOnly(usDigits);
+      if (d.length === 11 && d.startsWith("1")) return formatPhone(d.slice(1));
+      if (d.length !== 10) return usDigits;
+      const a = d.slice(0,3);
+      const b = d.slice(3,6);
+      const c = d.slice(6);
+      return `(${a}) ${b}-${c}`;
+    }
+
+    function renderPhonesTable() {
+      if (!phonesTbody) return;
+      phonesTbody.innerHTML = "";
+
+      for (const row of PHONE_ROWS) {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.textContent = `${row.name} (${row.tag})`;
+
+        const tdPhone = document.createElement("td");
+        const pretty = formatPhone(row.phone);
+        tdPhone.textContent = pretty;
+
+        const tdCall = document.createElement("td");
+        tdCall.style.textAlign = "center";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "callBtn";
+        btn.title = `Call ${pretty}`;
+        btn.setAttribute("aria-label", `Call ${pretty}`);
+        btn.innerHTML = PHONE_SVG;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const d = digitsOnly(row.phone);
+          if (!d) return;
+          window.location.href = `tel:+1${d}`;
+        });
+
+        tdCall.appendChild(btn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdPhone);
+        tr.appendChild(tdCall);
+        phonesTbody.appendChild(tr);
+      }
+    }
+
+    function openPhones() {
+      renderPhonesTable();
+      openModal(phonesModal);
+      if (phonesBtn) phonesBtn.classList.add("active-toggle");
+    }
+    function closePhones() {
+      closeModal(phonesModal);
+      if (phonesBtn) phonesBtn.classList.remove("active-toggle");
+    }
+
+    if (phonesBtn) {
+      phonesBtn.addEventListener("click", () => {
+        if (phonesModal.classList.contains("open")) closePhones();
+        else openPhones();
+      });
+    }
+    if (phonesCloseX) {
+      phonesCloseX.addEventListener("click", closePhones);
+    }
 
     /* ---------- Regions ---------- */
     const regionSelect = document.getElementById("region");
