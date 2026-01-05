@@ -697,14 +697,14 @@ padding: 12px;
     });
 
     stopwatchResetBtn.addEventListener("click", () => {
-      swElapsed = 0;
-      saveStopwatchElapsed(swElapsed);
-      if (swRunning) {
-        swStart = performance.now();
-      } else {
-        renderStopwatch();
-      }
-    });
+  if (swRunning) {
+    stopStopwatch();
+  }
+
+  swElapsed = 0;
+  saveStopwatchElapsed(swElapsed);
+  renderStopwatch();
+});
 
     // Initial paint
     renderStopwatch();
