@@ -377,6 +377,51 @@ padding: 12px;
 	}
 
   
+
+    /* Pronunciations page */
+    .pronPage{
+      position:absolute;
+      inset:0;
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+      display:none;
+      background: rgba(0,0,0,0);
+    }
+    .pronPage .kicker{ margin-top: 0; }
+    .pronToolbar{
+      display:flex;
+      gap:8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .pronToolbar input{
+      width: auto;
+      flex: 1 1 220px;
+    }
+    .pronToolbar .fixedBtn{ flex: 0 0 auto; }
+    .pronColumns{
+      column-width: 260px;
+      column-gap: 10px;
+    }
+    .pronItem{
+      break-inside: avoid;
+      border: 1px solid rgba(128,128,128,0.35);
+      border-radius: 12px;
+      padding: 10px;
+      margin: 0 0 10px 0;
+      background: rgba(0,0,0,0);
+      display:flex;
+      gap:10px;
+      align-items: start;
+    }
+    .pronItem .txt{ flex: 1; min-width: 0; }
+    .pronItem .term{ font-weight: 800; font-size: 13px; line-height: 1.2; }
+    .pronItem .say{ font-size: 12px; opacity: 0.85; margin-top: 4px; line-height: 1.25; }
+    .pronItem .actions{ flex: 0 0 auto; }
+
+
     /* Fullscreen */
     .app:fullscreen { width: 100vw; height: 100vh; overflow: hidden; }
     </style>
@@ -507,12 +552,13 @@ padding: 12px;
 
 <main class="right">
       <div class="toolbar">
-        <button id="middleToggleBtn" type="button">Hide Routes</button>
+        <button id="middleToggleBtn" type="button">←</button>
         <button id="reverseCurrentBtn" disabled>Reverse</button>
         <button id="openExternalBtn" disabled>Tab</button>
         <button id="camsBtn" type="button">Cams</button>
         <button id="cadBtn" type="button">CAD</button>
         <button id="quickmapBtn" type="button">QuickMap</button>
+        <button id="pronBtn" type="button" title="Pronunciations">Pron</button>
         <button id="phonesBtn" type="button" title="CHP/TMC phone numbers" aria-label="Phone numbers">
 <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" class="phoneIconSvg">
   <path fill="#3ccf6e" d="M6.62 10.79c1.44 2.87 3.72 5.15 6.59 6.59l2.2-2.2
@@ -532,6 +578,29 @@ padding: 12px;
         <iframe id="cadFrame" title="CAD" style="display:none;"></iframe>
         <iframe id="camsFrame" title="Cams" style="display:none;"></iframe>
         <iframe id="quickmapFrame" title="QuickMap" style="display:none;"></iframe>
+
+        <div id="pronPage" class="pronPage" aria-label="Pronunciations">
+          <div class="kicker">
+            <div class="section-title" style="margin: 0;">Pronunciation</div>
+            <div class="small" id="pronCountLabel"></div>
+          </div>
+
+          <div class="filters" id="pronFilterBar"></div>
+
+          <div class="pronToolbar">
+            <input id="pronTerm" placeholder="Place (e.g., Cahuenga)" />
+            <input id="pronSay" placeholder="Pronunciation (e.g., kuh-WENG-guh)" />
+            <button type="button" id="pronAddBtn" class="fixedBtn">Add</button>
+            <button type="button" id="pronExportBtn" class="fixedBtn">Export</button>
+            <button type="button" id="pronImportBtn" class="fixedBtn">Import</button>
+            <input type="file" id="pronImportFile" accept=".json,application/json" style="display:none" />
+          </div>
+
+          <div class="hint">Tip: Keep the spelling you want to see on-air. Use hyphens for beats (e.g., "SAN buhr-DEE-no").</div>
+
+          <div id="pronList" class="pronColumns" style="margin-top:10px;"></div>
+        </div>
+
  
       
 
@@ -628,6 +697,7 @@ padding: 12px;
     const WPM_KEY = "traffic_board_wpm_v1";
 
     const REGIONS_KEY = "traffic_board_regions_v1";
+    const PRON_KEY = "traffic_board_pronunciations_v1";
 
     const CAD_BASE = "/mycad.html";
     const QUICKMAP_URL = "https://quickmap.dot.ca.gov/QM/maps/traffic/mwebview.html?z=11&ll=34.04,-118.25";
@@ -799,7 +869,7 @@ padding: 12px;
 
       if (middleToggleBtn) {
         middleToggleBtn.classList.toggle("active-toggle", middleCollapsed);
-        middleToggleBtn.textContent = middleCollapsed ? "Show Routes" : "Hide Routes";
+        middleToggleBtn.textContent = middleCollapsed ? "→" : "←";
         middleToggleBtn.title = middleCollapsed ? "Show routes pane" : "Hide routes pane";
       }
 
@@ -855,6 +925,7 @@ padding: 12px;
 
     const cadBtn = document.getElementById("cadBtn");
     const quickmapBtn = document.getElementById("quickmapBtn");
+    const pronBtn = document.getElementById("pronBtn");
     const phonesBtn = document.getElementById("phonesBtn");
     const middleToggleBtn = document.getElementById("middleToggleBtn");
 
@@ -863,6 +934,15 @@ padding: 12px;
     const gmapsFrame = document.getElementById("gmapsFrame");
     const cadFrame = document.getElementById("cadFrame");
     const quickmapFrame = document.getElementById("quickmapFrame");
+
+
+    const pronPage = document.getElementById("pronPage");
+    const pronFilterBar = document.getElementById("pronFilterBar");
+    const pronListEl = document.getElementById("pronList");
+    const pronCountLabel = document.getElementById("pronCountLabel");
+    const pronTerm = document.getElementById("pronTerm");
+    const pronSay = document.getElementById("pronSay");
+    const pronAddBtn = document.getElementById("pronAddBtn");
 
     const camsFrame = document.getElementById("camsFrame");
 
@@ -883,6 +963,10 @@ padding: 12px;
 
     let camsVisible = false;
     let camsInitialized = false;
+
+    let pronVisible = false;
+    let activePronRegion = "LA";
+    let pronunciations = loadPronunciations();
 
     let middleCollapsed = false;
 
@@ -933,6 +1017,42 @@ padding: 12px;
     }
     function saveRegions() {
       localStorage.setItem(REGIONS_KEY, JSON.stringify(regions));
+    }
+
+
+    /* ---------- Storage: Pronunciations ---------- */
+    function defaultPronunciations() {
+      return {
+        LA: [],
+        IE: [],
+        Ventura: [],
+        SD: [],
+      };
+    }
+
+    function loadPronunciations() {
+      try {
+        const raw = localStorage.getItem(PRON_KEY);
+        if (!raw) return defaultPronunciations();
+        const parsed = JSON.parse(raw);
+        const base = defaultPronunciations();
+        if (!parsed || typeof parsed !== "object") return base;
+
+        for (const k of Object.keys(base)) {
+          const arr = Array.isArray(parsed[k]) ? parsed[k] : [];
+          base[k] = arr
+            .filter(x => x && typeof x.term === "string" && typeof x.say === "string")
+            .map(x => ({ term: x.term.trim(), say: x.say.trim() }))
+            .filter(x => x.term && x.say);
+        }
+        return base;
+      } catch {
+        return defaultPronunciations();
+      }
+    }
+
+    function savePronunciations() {
+      try { localStorage.setItem(PRON_KEY, JSON.stringify(pronunciations)); } catch {}
     }
 
     /* ---------- Storage: WPM ---------- */
@@ -1356,6 +1476,183 @@ padding: 12px;
     });
 
     /* ---------- Filtering ---------- */
+
+    /* ---------- Pronunciations ---------- */
+    function normRegionKey(regionId) {
+      if (regionId === "LA") return "LA";
+      if (regionId === "IE") return "IE";
+      if (regionId === "Ventura") return "Ventura";
+      if (regionId === "SD") return "SD";
+      return "LA";
+    }
+
+    function getPronRegions() {
+      return [
+        { id: "LA", label: "Los Angeles" },
+        { id: "IE", label: "Inland Empire" },
+        { id: "Ventura", label: "Ventura" },
+        { id: "SD", label: "San Diego" },
+      ];
+    }
+
+    function renderPronFilters() {
+      if (!pronFilterBar) return;
+      pronFilterBar.innerHTML = "";
+      for (const r of getPronRegions()) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.pronfilter = r.id;
+        btn.textContent = r.label;
+        btn.classList.toggle("active", activePronRegion === r.id);
+        pronFilterBar.appendChild(btn);
+      }
+    }
+
+    function setActivePronRegion(regionId) {
+      activePronRegion = normRegionKey(regionId);
+      renderPronFilters();
+      renderPronList();
+    }
+
+    if (pronFilterBar) {
+      pronFilterBar.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-pronfilter]");
+        if (!btn) return;
+        setActivePronRegion(btn.dataset.pronfilter);
+      });
+    }
+
+    function sortedPronList(regionKey) {
+      const list = Array.isArray(pronunciations?.[regionKey]) ? pronunciations[regionKey] : [];
+      const coll = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+      return list.slice().sort((a,b) => coll.compare(a.term || "", b.term || ""));
+    }
+
+    function renderPronList() {
+      if (!pronListEl || !pronCountLabel) return;
+      const key = normRegionKey(activePronRegion);
+      const list = sortedPronList(key);
+
+      pronCountLabel.textContent = `${list.length} items`;
+
+      pronListEl.innerHTML = "";
+      for (const item of list) {
+        const row = document.createElement("div");
+        row.className = "pronItem";
+
+        const txt = document.createElement("div");
+        txt.className = "txt";
+
+        const term = document.createElement("div");
+        term.className = "term";
+        term.textContent = item.term;
+
+        const say = document.createElement("div");
+        say.className = "say";
+        say.textContent = item.say;
+
+        txt.appendChild(term);
+        txt.appendChild(say);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "danger-x";
+        del.title = "Delete";
+        del.textContent = "✕";
+        del.addEventListener("click", () => {
+          const ok = confirm(`Delete pronunciation?\n\n${item.term} → ${item.say}`);
+          if (!ok) return;
+          const keep = (pronunciations[key] || []).filter(x => !(x.term === item.term && x.say === item.say));
+          pronunciations[key] = keep;
+          savePronunciations();
+          renderPronList();
+        });
+
+        actions.appendChild(del);
+
+        row.appendChild(txt);
+        row.appendChild(actions);
+        pronListEl.appendChild(row);
+      }
+    }
+
+    function addPronunciation() {
+      const key = normRegionKey(activePronRegion);
+      const term = String(pronTerm?.value || "").trim();
+      const say = String(pronSay?.value || "").trim();
+      if (!term || !say) return;
+
+      if (!pronunciations[key]) pronunciations[key] = [];
+      pronunciations[key].push({ term, say });
+      savePronunciations();
+
+      if (pronTerm) pronTerm.value = "";
+      if (pronSay) pronSay.value = "";
+      renderPronList();
+      if (pronTerm) pronTerm.focus();
+    }
+
+    if (pronAddBtn) pronAddBtn.addEventListener("click", addPronunciation);
+    if (pronSay) {
+      pronSay.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addPronunciation();
+        }
+      });
+    }
+
+    const pronExportBtn = document.getElementById("pronExportBtn");
+    const pronImportBtn = document.getElementById("pronImportBtn");
+    const pronImportFile = document.getElementById("pronImportFile");
+
+    if (pronExportBtn) {
+      pronExportBtn.addEventListener("click", () => {
+        const payload = {
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          pronunciations,
+        };
+        const text = JSON.stringify(payload, null, 2);
+        const ts = new Date().toISOString().slice(0,19).replaceAll(":","-");
+        downloadText(`pronunciations-${ts}.json`, text);
+      });
+    }
+
+    if (pronImportBtn && pronImportFile) {
+      pronImportBtn.addEventListener("click", () => pronImportFile.click());
+      pronImportFile.addEventListener("change", async () => {
+        const f = pronImportFile.files?.[0];
+        pronImportFile.value = "";
+        if (!f) return;
+        try {
+          const text = await f.text();
+          const parsed = JSON.parse(text);
+          const incoming = parsed?.pronunciations || parsed;
+          if (!incoming || typeof incoming !== "object") throw new Error("Bad JSON.");
+
+          const base = defaultPronunciations();
+          for (const k of Object.keys(base)) {
+            const arr = Array.isArray(incoming[k]) ? incoming[k] : [];
+            base[k] = arr
+              .filter(x => x && typeof x.term === "string" && typeof x.say === "string")
+              .map(x => ({ term: x.term.trim(), say: x.say.trim() }))
+              .filter(x => x.term && x.say);
+          }
+
+          pronunciations = base;
+          savePronunciations();
+          renderPronList();
+          alert("Imported pronunciations.");
+        } catch (err) {
+          alert(`Import failed: ${err?.message || err}`);
+        }
+      });
+    }
+
     function getFilteredRoutes() {
       if (activeFilter === "ALL") return routes;
       return routes.filter(r => (r.region || "") === activeFilter);
@@ -1385,9 +1682,12 @@ padding: 12px;
       cadVisible = false;
       quickmapVisible = false;
       camsVisible = false;
+      pronVisible = false;
       cadBtn.classList.remove("active-toggle");
       quickmapBtn.classList.remove("active-toggle");
       camsBtn.classList.remove("active-toggle");
+      if (pronBtn) pronBtn.classList.remove("active-toggle");
+      if (pronPage) pronPage.style.display = "none";
       gmapsFrame.style.display = "block";
       cadFrame.style.display = "none";
       quickmapFrame.style.display = "none";
@@ -1402,9 +1702,12 @@ padding: 12px;
       cadVisible = true;
       quickmapVisible = false;
       camsVisible = false;
+      pronVisible = false;
       cadBtn.classList.add("active-toggle");
       quickmapBtn.classList.remove("active-toggle");
       camsBtn.classList.remove("active-toggle");
+      if (pronBtn) pronBtn.classList.remove("active-toggle");
+      if (pronPage) pronPage.style.display = "none";
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "block";
       quickmapFrame.style.display = "none";
@@ -1423,9 +1726,12 @@ padding: 12px;
       cadVisible = false;
       quickmapVisible = true;
       camsVisible = false;
+      pronVisible = false;
       cadBtn.classList.remove("active-toggle");
       quickmapBtn.classList.add("active-toggle");
       camsBtn.classList.remove("active-toggle");
+      if (pronBtn) pronBtn.classList.remove("active-toggle");
+      if (pronPage) pronPage.style.display = "none";
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "none";
       quickmapFrame.style.display = "block";
@@ -1462,10 +1768,13 @@ padding: 12px;
       cadVisible = false;
       quickmapVisible = false;
       camsVisible = true;
+      pronVisible = false;
 
       cadBtn.classList.remove("active-toggle");
       quickmapBtn.classList.remove("active-toggle");
       camsBtn.classList.add("active-toggle");
+      if (pronBtn) pronBtn.classList.remove("active-toggle");
+      if (pronPage) pronPage.style.display = "none";
 
       gmapsFrame.style.display = "none";
       cadFrame.style.display = "none";
@@ -1485,6 +1794,39 @@ padding: 12px;
       if (camsVisible) showGmaps();
       else showCams();
     });
+
+
+    function showPron() {
+      cadVisible = false;
+      quickmapVisible = false;
+      camsVisible = false;
+      pronVisible = true;
+
+      cadBtn.classList.remove("active-toggle");
+      quickmapBtn.classList.remove("active-toggle");
+      camsBtn.classList.remove("active-toggle");
+      if (pronBtn) pronBtn.classList.add("active-toggle");
+
+      gmapsFrame.style.display = "none";
+      cadFrame.style.display = "none";
+      quickmapFrame.style.display = "none";
+      camsFrame.style.display = "none";
+      if (pronPage) pronPage.style.display = "block";
+
+      openExternalBtn.disabled = true;
+      reverseCurrentBtn.disabled = true;
+
+      renderPronFilters();
+      renderPronList();
+      if (pronTerm) pronTerm.focus();
+    }
+
+    if (pronBtn) {
+      pronBtn.addEventListener("click", () => {
+        if (pronVisible) showGmaps();
+        else showPron();
+      });
+    }
 
     /* ---------- Current route selection ---------- */
     function setCurrent(route, reversed = false) {
@@ -1975,6 +2317,10 @@ if (tryRouteBtn) {
       ensureRoutesUseValidRegions();
       saveRoutes();
       renderList();
+
+      renderPronFilters();
+      renderPronList();
+      if (pronPage) pronPage.style.display = "none";
 
       // start on gmaps
       gmapsFrame.src = "about:blank";
